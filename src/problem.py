@@ -3,7 +3,7 @@ from image import Image
 
 problems_config = {
     '2x1': {
-        'answers': [str(x) + '.png' for x in range(1, 8)],
+        'answers': [str(x) + '.png' for x in range(1, 9)],
         'data': ['a.png', 'b.png', 'c.png'],
         'full': 'full.png',
         'info': 'info.json',
@@ -47,8 +47,10 @@ class Problem:
 
 
 problem = Problem('2x1', '1')
-for x in problem.answer_images:
-    print(x)
-    for y in x.objects:
-        print(y.center)
+for answer in problem.answer_images:
+    print('Obrazek: {}'.format(answer.path))
+    for obj in answer.objects:
+        print('Shape: {}, Area: {}, aspect_ratio: {}, filled: {}, height: {},'' width: {}, center: {}'
+              .format(obj.shape, obj.area, obj.aspect_ratio, obj.filled, obj.height, obj.width, obj.center))
+
 
