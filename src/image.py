@@ -1,4 +1,5 @@
 import cv2
+import operator
 
 
 class Object:
@@ -20,11 +21,30 @@ class Image:
         self.objects = []
         self.conturs = self._get_conturs()
         self._find_objects()
+        self._remove_duplicates()
 
     def _get_conturs(self):
         thresh = self._get_thresh()
         h, contours, _ = cv2.findContours(thresh, 1, 2)
         return contours
+
+    def _remove_duplicates(self):
+        without_duplicates = []
+        for x in self.objects:
+            if without_duplicates:
+                duplicat = False
+                for y in without_duplicates:
+                    if y.center == x.center or \
+                            y.center == tuple(map(operator.add, x.center, (1, 0))) or \
+                            y.center == tuple(map(operator.add, x.center, (0, 1))) or \
+                            y.center == tuple(map(operator.sub, x.center, (1, 0))) or \
+                            y.center == tuple(map(operator.sub, x.center, (0, 1))):
+                        duplicat = True
+                if not duplicat:
+                    without_duplicates.append(x)
+            else:
+                without_duplicates.append(x)
+        self.objects = without_duplicates
 
     def _get_thresh(self):
         ret, thresh = cv2.threshold(self.gray, 127, 255, 1)
@@ -54,22 +74,13 @@ class Image:
 
             if len(approx) == 5:
                 new_object.shape = 'pentagon'
-                # cv2.drawContours(self.img, [cnt], 0, 255, -1)
             elif len(approx) == 3:
-                # print("triangle")
                 new_object.shape = 'triangle'
-                # cv2.drawContours(self.imgimg, [cnt], 0, (0, 255, 0), -1)
             elif len(approx) == 4:
-                # print("square")
                 new_object.shape = 'square'
-                # cv2.drawContours(self.imgimg, [cnt], 0, (0, 0, 255), -1)
             elif len(approx) == 9:
-                # print("half-circle")
                 new_object.shape = 'half-circle'
-                # cv2.drawContours(self.imgimg, [cnt], 0, (255, 255, 0), -1)
             elif len(approx) >= 15:
-                # print("circle")
                 new_object.shape = 'circle'
-                # cv2.drawContours(self.imgimg, [cnt], 0, (0, 255, 255), -1)
 
             self.objects.append(new_object)
