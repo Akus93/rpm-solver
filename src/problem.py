@@ -3,7 +3,7 @@ from image import Image
 
 problems_config = {
     '2x1': {
-        'answers': [str(x) + '.png' for x in range(1, 8)],
+        'answers': [str(x) + '.png' for x in range(1, 7)],
         'data': ['a.png', 'b.png', 'c.png'],
         'full': 'full.png',
         'info': 'info.json',

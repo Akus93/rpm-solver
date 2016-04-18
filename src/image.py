@@ -32,7 +32,7 @@ class Image:
 
     def _find_objects(self):
         for cnt in self.conturs:
-            new_object = Object
+            new_object = Object()
             approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
             m = cv2.moments(cnt)
             cx = int(m["m10"] / m["m00"])
@@ -67,7 +67,7 @@ class Image:
                 # print("half-circle")
                 new_object.shape = 'half-circle'
                 # cv2.drawContours(self.imgimg, [cnt], 0, (255, 255, 0), -1)
-            elif len(approx) > 15:
+            elif len(approx) >= 15:
                 # print("circle")
                 new_object.shape = 'circle'
                 # cv2.drawContours(self.imgimg, [cnt], 0, (0, 255, 255), -1)
