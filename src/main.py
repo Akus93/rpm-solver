@@ -7,9 +7,9 @@ pp = pprint.PrettyPrinter(indent=4)
 
 images = {}
 
-for x in range(1, 6):
+for x in range(1, 7):
     image_name = '{}.png'.format(x)
-    path = '../res/2x1_problems/01/{}'.format(image_name)
+    path = '../res/2x1/1/{}'.format(image_name)
 
     images[image_name] = {}
 
@@ -60,7 +60,7 @@ for x in range(1, 6):
         # print("half-circle")
         images[image_name]['shape'] = 'half-circle'
         cv2.drawContours(img, [cnt], 0, (255, 255, 0), -1)
-    elif len(approx) > 15:
+    elif len(approx) >= 15:
         # print("circle")
         images[image_name]['shape'] = 'circle'
         cv2.drawContours(img, [cnt], 0, (0, 255, 255), -1)
@@ -69,3 +69,5 @@ for x in range(1, 6):
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
 pp.pprint(images)
+
+
