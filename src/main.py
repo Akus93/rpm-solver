@@ -2,6 +2,11 @@ import numpy
 import pprint
 from scipy import misc
 from PIL import Image
+from time import process_time
+import pyprind
+from threading import Thread
+from multiprocessing import Process
+
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -100,12 +105,10 @@ def complement(a, b):
 
 
 def intersection(a, b):
-    a = list(numpy.array(a).tolist())
-    b = list(numpy.array(b).tolist())
     counter = 0
     for i, row in enumerate(a):
         for j, value in enumerate(row):
-            if value == b[i][j]:
+            if value[0] == b[i][j][0] and value[1] == b[i][j][1] and value[2] == b[i][j][2]:                    #  if value[0] == b.item(i, j, 0) and value[1] == b.item(i, j, 1):  # if numpy.array_equal(value, b[i][j]):
                 counter += 1
     return counter
 
@@ -116,12 +119,9 @@ def similarity(a, b, alpha, beta):
 
 
 def similarity2(a, b):
-    a = list(numpy.array(a).tolist())
-    b = list(numpy.array(b).tolist())
     _union = len(b) * len(b[0]) + len(a) * len(a[0])
     _intersection = intersection(a, b)
     _union -= _intersection
-    # print('union={} intersection={}'.format(union, intersection))
     return _intersection / _union
 
 
@@ -138,41 +138,53 @@ for x in ['a', 'b', 'c', 8]:
     images[x] = img
 
 data['identity']['image'] = images['a']
-data['mirror']['image'] = numpy.fliplr(images['a'])
-data['flip']['image'] = numpy.flipud(images['a'])
-data['rot90']['image'] = numpy.rot90(images['a'], 1)
-# data['rot180']['image'] = numpy.rot90(images['a'], 2)
+data['mirror']['image'] = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
+data['flip']['image'] = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
+data['rot90']['image'] = transformations['rot90'](images['a'])  # numpy.rot90(images['a'], 1)
 data['rot180']['image'] = transformations['rot180'](images['a'])
 data['rot270']['image'] = transformations['rot270'](images['a'])
 
 
-# rolled = numpy.roll(a_mirror, 60, axis=0)
-# rolled = numpy.roll(rolled, 100, axis=1)
-# misc.toimage(data['rot180']['image']).show()
-# misc.toimage(a_mirror).show()
-# misc.toimage(a_rot180).show()
-
-# print(similarity(a_mirror, images['b']))list(numpy.array(a).tolist())
-# print(len(a_mirror))
-# pp.pprint(a_mirror.reshape((184, -1)).reshape((184, -1)))
-
-# pp.pprint(reshape(a_mirror, 184, 184))
-
-# print(similarity2(a_mirror, images['b']))
-
-values = ['', '', 0]
-
-for transform in data.keys():
-    for i in range(5):  # range(len(data['identity']['image'])):
-        for j in range(20):  # range(len(data['identity']['image'][i])):
+def make_transformation(transform):
+    counter = 0
+    for i in range(0, len(data['identity']['image']), 4):
+        print('{} worker: {}/{}'.format(transform, counter, len(data['identity']['image']) // 4))
+        for j in range(0, len(data['identity']['image'][i]), 4):
             rolled = numpy.roll(data[transform]['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
-            print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
+            # print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
             if data[transform]['best_similarity'] < sim:
                 data[transform]['best_similarity'] = sim
                 data[transform]['i'] = i
                 data[transform]['j'] = j
+        counter += 1
+
+# TEST MULTI PROCESSES
+# mirror_worker = Process(target=make_transformation, args=('mirror', ))
+# flip_worker = Process(target=make_transformation, args=('flip', ))
+# rot90_worker = Process(target=make_transformation, args=('rot90', ))
+# mirror_worker.start()
+# flip_worker.start()
+# rot90_worker.start()
+
+values = ['', '', 0]
+
+print('Start calculations...')
+for transform in data.keys():
+    print(transform)
+    bar = pyprind.ProgBar(len(data['identity']['image'])//4)
+    for i in range(0, len(data['identity']['image']), 4):
+        for j in range(0, len(data['identity']['image'][i]), 4):
+            rolled = numpy.roll(data[transform]['image'], i, axis=0)
+            rolled = numpy.roll(rolled, j, axis=1)
+            sim = similarity2(rolled, images['b'])
+            # print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
+            if data[transform]['best_similarity'] < sim:
+                data[transform]['best_similarity'] = sim
+                data[transform]['i'] = i
+                data[transform]['j'] = j
+        bar.update()
     image = numpy.roll(numpy.roll(data[transform]['image'], data[transform]['i'], axis=0), data[transform]['j'], axis=1)
     # misc.toimage(image).show()
     data[transform]['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
