@@ -32,15 +32,15 @@ class Image:
         without_duplicates = []
         for x in self.objects:
             if without_duplicates:
-                duplicat = False
+                duplicate = False
                 for y in without_duplicates:
                     if y.center == x.center or \
                             y.center == tuple(map(operator.add, x.center, (1, 0))) or \
                             y.center == tuple(map(operator.add, x.center, (0, 1))) or \
                             y.center == tuple(map(operator.sub, x.center, (1, 0))) or \
                             y.center == tuple(map(operator.sub, x.center, (0, 1))):
-                        duplicat = True
-                if not duplicat:
+                        duplicate = True
+                if not duplicate:
                     without_duplicates.append(x)
             else:
                 without_duplicates.append(x)

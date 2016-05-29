@@ -1,5 +1,5 @@
 import json
-from image import Image
+from .image import Image
 
 problems_config = {
     '2x1': {
@@ -47,10 +47,11 @@ class Problem:
 
 
 problem = Problem('2x1', '1')
-for answer in problem.answer_images:
-    print('Obrazek: {}'.format(answer.path))
-    for obj in answer.objects:
-        print('Shape: {}, Area: {}, aspect_ratio: {}, filled: {}, height: {},'' width: {}, center: {}'
-              .format(obj.shape, obj.area, obj.aspect_ratio, obj.filled, obj.height, obj.width, obj.center))
+for ans_id, answer in enumerate(problem.answer_images, 1):
+    print('Image {}: path({})'.format(ans_id, answer.path))
+    for obj_id, obj in enumerate(answer.objects, 1):
+        print('\t Object {}: shape: {}, Area: {}, aspect_ratio: {}, filled: {}, height: {},'' width: {}, center: {}'
+              .format(obj_id, obj.shape, obj.area, obj.aspect_ratio, obj.filled, obj.height, obj.width, obj.center))
+    print()
 
 
