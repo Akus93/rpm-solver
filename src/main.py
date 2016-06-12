@@ -104,6 +104,14 @@ def complement(a, b):
     return len(a) * len(a[0]) - intersection(a, b)
 
 
+def img_complement(a, b):
+    for i, row in enumerate(a):
+        for j, value in enumerate(row):
+            if not ((value[0] < 50 and value[1] < 50 and value[2] < 50) and (b[i][j][0] > 200 and b[i][j][1] > 200 and b[i][j][2] > 200)):
+                value[0] = value[1] = value[2] = 255
+    return a
+
+
 def intersection(a, b):
     counter = 0
     for i, row in enumerate(a):
@@ -125,15 +133,16 @@ def similarity2(a, b):
     return _intersection / _union
 
 
+test_nr = 7
 for x in range(1, 7):
     image_name = '{}.png'.format(x)
-    path = '../res/2x1/1/{}'.format(image_name)
+    path = '../res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
     answer_images.append(img)
 
-for x in ['a', 'b', 'c', 8]:
+for x in ['a', 'b', 'c']:
     image_name = '{}.png'.format(x)
-    path = '../res/2x1/1/{}'.format(image_name)
+    path = '../res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
     images[x] = img
 
@@ -161,21 +170,21 @@ def make_transformation(transform):
         counter += 1
 
 # TEST MULTI PROCESSES
-# mirror_worker = Process(target=make_transformation, args=('mirror', ))
-# flip_worker = Process(target=make_transformation, args=('flip', ))
-# rot90_worker = Process(target=make_transformation, args=('rot90', ))
-# mirror_worker.start()
-# flip_worker.start()
-# rot90_worker.start()
+mirror_worker = Process(target=make_transformation, args=('mirror', ))
+flip_worker = Process(target=make_transformation, args=('flip', ))
+rot90_worker = Process(target=make_transformation, args=('rot90', ))
+mirror_worker.start()
+flip_worker.start()
+rot90_worker.start()
 
 values = ['', '', 0]
 
 print('Start calculations...')
 for transform in data.keys():
     print(transform)
-    bar = pyprind.ProgBar(len(data['identity']['image'])//4)
-    for i in range(0, len(data['identity']['image']), 4):
-        for j in range(0, len(data['identity']['image'][i]), 4):
+    bar = pyprind.ProgBar(len(data['identity']['image'])//1)
+    for i in range(0, len(data['identity']['image']), 1):
+        for j in range(0, len(data['identity']['image'][i]), 1):
             rolled = numpy.roll(data[transform]['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
@@ -205,15 +214,32 @@ for transform in data.keys():
         values[2] = data[transform]['similarity']['a0b1']
 
 guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
-misc.toimage(guess).show()
+# misc.toimage(guess).show()
+
+if values[1] == 'a1b0':
+    _X = img_complement(images['b'][:], images['a'])
+elif values[1] == 'a0b1':
+    _X = img_complement(images['a'][:], images['b'])
+else:
+    _X = None
+
+# misc.toimage(_X).show()
+
 answer_sim = []
 
 for i, answer in enumerate(answer_images):
     sim = similarity2(guess, answer)
     answer_sim.append([i+1, sim])
+pp.pprint(answer_sim)
+# max_sim = max(answer_sim, key=lambda item: answer_sim[1])
+max_sim_val = 0
+max_sim_nr = None
+for sim in answer_sim:
+    if sim[1] > max_sim_val:
+        max_sim_val = sim[1]
+        max_sim_nr = sim[0]
+print('max_sim={}'.format(max_sim_nr))
+misc.toimage(answer_images[max_sim_nr-1]).show()
 
-max_sim = max(answer_sim, key=lambda item: answer_sim[1])
-misc.toimage(answer_images[max_sim[0]-1]).show()
-
-pp.pprint(data)
+# pp.pprint(data)
 
