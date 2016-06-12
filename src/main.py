@@ -1,11 +1,8 @@
 import numpy
 import pprint
 from scipy import misc
-from PIL import Image
-from time import process_time
 import pyprind
-from threading import Thread
-from multiprocessing import Process
+from multiprocessing.pool import ThreadPool as Pool
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -107,8 +104,17 @@ def complement(a, b):
 def img_complement(a, b):
     for i, row in enumerate(a):
         for j, value in enumerate(row):
-            if not ((value[0] < 50 and value[1] < 50 and value[2] < 50) and (b[i][j][0] > 200 and b[i][j][1] > 200 and b[i][j][2] > 200)):
+            if not ((value[0] < 128 and value[1] < 128 and value[2] < 128) and (b[i][j][0] > 128 and b[i][j][1] > 128 and b[i][j][2] > 128)):
                 value[0] = value[1] = value[2] = 255
+    return a
+
+
+def img_union(a, b):
+    for i, row in enumerate(a):
+        for j, value in enumerate(row):
+            if ((value[0] > 128 and value[1] > 128 and value[2] > 128) and (
+                        b[i][j][0] < 128 and b[i][j][1] < 128 and b[i][j][2] < 128)):
+                value[0] = value[1] = value[2] = 0
     return a
 
 
@@ -132,8 +138,13 @@ def similarity2(a, b):
     _union -= _intersection
     return _intersection / _union
 
+def slice(image):
+    for i in range(0, 5, 1):
+        for j in range(0, 5, 1):
+            image.crop((i*32, j*32, 160 - (4-i)*32, 160 - (4-j)*32))
 
-test_nr = 7
+
+test_nr = 1
 for x in range(1, 7):
     image_name = '{}.png'.format(x)
     path = '../res/2x1/{}/{}'.format(test_nr, image_name)
@@ -146,6 +157,7 @@ for x in ['a', 'b', 'c']:
     img = misc.imread(path)
     images[x] = img
 
+
 data['identity']['image'] = images['a']
 data['mirror']['image'] = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
 data['flip']['image'] = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
@@ -153,12 +165,12 @@ data['rot90']['image'] = transformations['rot90'](images['a'])  # numpy.rot90(im
 data['rot180']['image'] = transformations['rot180'](images['a'])
 data['rot270']['image'] = transformations['rot270'](images['a'])
 
-
+'''
 def make_transformation(transform):
     counter = 0
-    for i in range(0, len(data['identity']['image']), 4):
+    for i in range(0, len(data['identity']['image']), 8):
         print('{} worker: {}/{}'.format(transform, counter, len(data['identity']['image']) // 4))
-        for j in range(0, len(data['identity']['image'][i]), 4):
+        for j in range(0, len(data['identity']['image'][i]), 8):
             rolled = numpy.roll(data[transform]['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
@@ -176,15 +188,22 @@ rot90_worker = Process(target=make_transformation, args=('rot90', ))
 mirror_worker.start()
 flip_worker.start()
 rot90_worker.start()
+'''
 
 values = ['', '', 0]
 
 print('Start calculations...')
-for transform in data.keys():
+
+pool_size = 6
+pool = Pool(processes=6)
+
+
+def x(transform):
+    # for transform in data.keys():
     print(transform)
     bar = pyprind.ProgBar(len(data['identity']['image'])//1)
-    for i in range(0, len(data['identity']['image']), 1):
-        for j in range(0, len(data['identity']['image'][i]), 1):
+    for i in range(0, len(data['identity']['image']), 8):
+        for j in range(0, len(data['identity']['image'][i]), 8):
             rolled = numpy.roll(data[transform]['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
@@ -195,7 +214,7 @@ for transform in data.keys():
                 data[transform]['j'] = j
         bar.update()
     image = numpy.roll(numpy.roll(data[transform]['image'], data[transform]['i'], axis=0), data[transform]['j'], axis=1)
-    # misc.toimage(image).show()
+    misc.toimage(image).show()
     data[transform]['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
     data[transform]['similarity']['a1b0'] = similarity(image, images['b'], 1, 0)
     data[transform]['similarity']['a0b1'] = similarity(image, images['b'], 0, 1)
@@ -213,6 +232,13 @@ for transform in data.keys():
         values[1] = 'a0b1'
         values[2] = data[transform]['similarity']['a0b1']
 
+
+for transform in data.keys():
+    pool.apply_async(x, (transform, ))
+
+pool.close()
+pool.join()
+
 guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
 # misc.toimage(guess).show()
 
@@ -224,6 +250,10 @@ else:
     _X = None
 
 # misc.toimage(_X).show()
+
+misc.toimage(img_union(guess, _X)).show()
+
+guess = img_union(guess, _X)
 
 answer_sim = []
 
