@@ -113,11 +113,12 @@ def img_complement(a, b):
 
 
 def img_union(a, b):
-    for i, row in enumerate(a):
-        for j, value in enumerate(row):
-            if ((value[0] > 128 and value[1] > 128 and value[2] > 128) and (
-                        b[i][j][0] < 128 and b[i][j][1] < 128 and b[i][j][2] < 128)):
-                value[0] = value[1] = value[2] = 0
+    if b.any():
+        for i, row in enumerate(a):
+            for j, value in enumerate(row):
+                if ((value[0] > 128 and value[1] > 128 and value[2] > 128) and (
+                            b[i][j][0] < 128 and b[i][j][1] < 128 and b[i][j][2] < 128)):
+                    value[0] = value[1] = value[2] = 0
     return a
 
 
@@ -142,17 +143,28 @@ def similarity2(a, b):
     return _intersection / _union
 
 
+def make_black_or_white(img):
+    for i, row in enumerate(img):
+        for j, value in enumerate(img):
+            if img[i][j][0] < 128 and img[i][j][1] < 128 and img[i][j][2] < 128:
+                img[i][j][0] = img[i][j][1] = img[i][j][2] = 0
+            else:
+                img[i][j][0] = img[i][j][1] = img[i][j][2] = 255
+    return img
+
 test_nr = 7
 for x in range(1, 7):
     image_name = '{}.png'.format(x)
     path = '../res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
+    img = make_black_or_white(img)
     answer_images.append(img)
 
 for x in ['a', 'b', 'c']:
     image_name = '{}.png'.format(x)
     path = '../res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
+    img = make_black_or_white(img)
     images[x] = img
 
 
@@ -254,15 +266,13 @@ if __name__ == '__main__':
             values[2] = data[key]['similarity']['a0b1']
     pp.pprint(values)
 
-
-
     guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
     # misc.toimage(guess).show()
 
     if values[1] == 'a1b0':
-        _X = img_complement(images['b'][:], images['a'])
+        _X = img_complement(images['b'], images['a'])
     elif values[1] == 'a0b1':
-        _X = img_complement(images['a'][:], images['b'])
+        _X = img_complement(images['a'], images['b'])
     else:
         _X = None
 
