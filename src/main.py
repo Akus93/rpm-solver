@@ -244,11 +244,11 @@ if __name__ == '__main__':
             values[0] = key
             values[1] = 'a1b1'
             values[2] = data[key]['similarity']['a1b1']
-        elif data[key]['similarity']['a1b0'] > values[2]:
+        if data[key]['similarity']['a1b0'] > values[2]:
             values[0] = key
             values[1] = 'a1b0'
             values[2] = data[key]['similarity']['a1b0']
-        elif data[key]['similarity']['a0b1'] > values[2]:
+        if data[key]['similarity']['a0b1'] > values[2]:
             values[0] = key
             values[1] = 'a0b1'
             values[2] = data[key]['similarity']['a0b1']
