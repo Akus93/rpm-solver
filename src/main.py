@@ -3,6 +3,9 @@ import pprint
 from scipy import misc
 import pyprind
 from multiprocessing.pool import ThreadPool as Pool
+from multiprocessing import Process, Manager
+import _thread
+import threading
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -138,13 +141,8 @@ def similarity2(a, b):
     _union -= _intersection
     return _intersection / _union
 
-def slice(image):
-    for i in range(0, 5, 1):
-        for j in range(0, 5, 1):
-            image.crop((i*32, j*32, 160 - (4-i)*32, 160 - (4-j)*32))
 
-
-test_nr = 1
+test_nr = 7
 for x in range(1, 7):
     image_name = '{}.png'.format(x)
     path = '../res/2x1/{}/{}'.format(test_nr, image_name)
@@ -158,118 +156,139 @@ for x in ['a', 'b', 'c']:
     images[x] = img
 
 
-data['identity']['image'] = images['a']
-data['mirror']['image'] = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
-data['flip']['image'] = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
-data['rot90']['image'] = transformations['rot90'](images['a'])  # numpy.rot90(images['a'], 1)
-data['rot180']['image'] = transformations['rot180'](images['a'])
-data['rot270']['image'] = transformations['rot270'](images['a'])
-
-'''
-def make_transformation(transform):
-    counter = 0
-    for i in range(0, len(data['identity']['image']), 8):
-        print('{} worker: {}/{}'.format(transform, counter, len(data['identity']['image']) // 4))
-        for j in range(0, len(data['identity']['image'][i]), 8):
-            rolled = numpy.roll(data[transform]['image'], i, axis=0)
-            rolled = numpy.roll(rolled, j, axis=1)
-            sim = similarity2(rolled, images['b'])
-            # print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
-            if data[transform]['best_similarity'] < sim:
-                data[transform]['best_similarity'] = sim
-                data[transform]['i'] = i
-                data[transform]['j'] = j
-        counter += 1
-
-# TEST MULTI PROCESSES
-mirror_worker = Process(target=make_transformation, args=('mirror', ))
-flip_worker = Process(target=make_transformation, args=('flip', ))
-rot90_worker = Process(target=make_transformation, args=('rot90', ))
-mirror_worker.start()
-flip_worker.start()
-rot90_worker.start()
-'''
-
 values = ['', '', 0]
 
-print('Start calculations...')
-
-pool_size = 6
-pool = Pool(processes=6)
+leng = len(images['a'])
 
 
-def x(transform):
-    # for transform in data.keys():
-    print(transform)
-    bar = pyprind.ProgBar(len(data['identity']['image'])//1)
-    for i in range(0, len(data['identity']['image']), 8):
-        for j in range(0, len(data['identity']['image'][i]), 8):
-            rolled = numpy.roll(data[transform]['image'], i, axis=0)
+def x(image, transforms, name):
+    transform = {
+        'image': image,
+        'i': None,
+        'j': None,
+        'best_similarity': 0,
+        'similarity': {
+            'a1b1': None,
+            'a1b0': None,
+            'a0b1': None,
+        }
+    }
+
+    bar = pyprind.ProgBar(leng//1)
+    for i in range(0, leng, 8):
+        for j in range(0, leng, 8):
+            rolled = numpy.roll(transform['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
             # print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
-            if data[transform]['best_similarity'] < sim:
-                data[transform]['best_similarity'] = sim
-                data[transform]['i'] = i
-                data[transform]['j'] = j
+            if transform['best_similarity'] < sim:
+                transform['best_similarity'] = sim
+                transform['i'] = i
+                transform['j'] = j
         bar.update()
-    image = numpy.roll(numpy.roll(data[transform]['image'], data[transform]['i'], axis=0), data[transform]['j'], axis=1)
-    misc.toimage(image).show()
-    data[transform]['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
-    data[transform]['similarity']['a1b0'] = similarity(image, images['b'], 1, 0)
-    data[transform]['similarity']['a0b1'] = similarity(image, images['b'], 0, 1)
-
-    if data[transform]['similarity']['a1b1'] > values[2]:
-        values[0] = transform
-        values[1] = 'a1b1'
-        values[2] = data[transform]['similarity']['a1b1']
-    elif data[transform]['similarity']['a1b0'] > values[2]:
-        values[0] = transform
-        values[1] = 'a1b0'
-        values[2] = data[transform]['similarity']['a1b0']
-    elif data[transform]['similarity']['a0b1'] > values[2]:
-        values[0] = transform
-        values[1] = 'a0b1'
-        values[2] = data[transform]['similarity']['a0b1']
+    image = numpy.roll(numpy.roll(transform['image'], transform['i'], axis=0), transform['j'], axis=1)
+    # misc.toimage(image).show()
+    transform['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
+    transform['similarity']['a1b0'] = similarity(image, images['b'], 1, 0)
+    transform['similarity']['a0b1'] = similarity(image, images['b'], 0, 1)
+    transforms[name] = transform
 
 
-for transform in data.keys():
-    pool.apply_async(x, (transform, ))
+if __name__ == '__main__':
+    manager = Manager()
+    datapro = manager.dict()
+    datas = []
+    jobs = []
 
-pool.close()
-pool.join()
+    identity = images['a']
+    mirror = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
+    flip = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
+    rot90 = transformations['rot90'](images['a'])  # numpy.rot90(images['a'], 1)
+    rot180 = transformations['rot180'](images['a'])
+    rot270 = transformations['rot270'](images['a'])
 
-guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
-# misc.toimage(guess).show()
+    p = Process(target=x, args=(identity, datapro, 'identity', ))
+    p.daemon = True
+    p.start()
 
-if values[1] == 'a1b0':
-    _X = img_complement(images['b'][:], images['a'])
-elif values[1] == 'a0b1':
-    _X = img_complement(images['a'][:], images['b'])
-else:
-    _X = None
+    p1 = Process(target=x, args=(mirror, datapro, 'mirror', ))
+    p1.daemon = False
+    p1.start()
 
-# misc.toimage(_X).show()
+    p2 = Process(target=x, args=(rot90, datapro, 'rot90', ))
+    p2.daemon = False
+    p2.start()
 
-misc.toimage(img_union(guess, _X)).show()
+    p3 = Process(target=x, args=(rot180, datapro, 'rot180', ))
+    p3.daemon = False
+    p3.start()
 
-guess = img_union(guess, _X)
+    p4 = Process(target=x, args=(rot270, datapro, 'rot270', ))
+    p4.daemon = False
+    p4.start()
 
-answer_sim = []
+    p5 = Process(target=x, args=(flip, datapro, 'flip', ))
+    p5.daemon = False
+    p5.start()
 
-for i, answer in enumerate(answer_images):
-    sim = similarity2(guess, answer)
-    answer_sim.append([i+1, sim])
-pp.pprint(answer_sim)
-# max_sim = max(answer_sim, key=lambda item: answer_sim[1])
-max_sim_val = 0
-max_sim_nr = None
-for sim in answer_sim:
-    if sim[1] > max_sim_val:
-        max_sim_val = sim[1]
-        max_sim_nr = sim[0]
-print('max_sim={}'.format(max_sim_nr))
-misc.toimage(answer_images[max_sim_nr-1]).show()
+    p.join()
+    p1.join()
+    p2.join()
+    p3.join()
+    p4.join()
+    p5.join()
 
-# pp.pprint(data)
+    for key in data.keys():
+        data[key] = datapro[key]
+        if data[key]['similarity']['a1b1'] > values[2]:
+            values[0] = key
+            values[1] = 'a1b1'
+            values[2] = data[key]['similarity']['a1b1']
+        elif data[key]['similarity']['a1b0'] > values[2]:
+            values[0] = key
+            values[1] = 'a1b0'
+            values[2] = data[key]['similarity']['a1b0']
+        elif data[key]['similarity']['a0b1'] > values[2]:
+            values[0] = key
+            values[1] = 'a0b1'
+            values[2] = data[key]['similarity']['a0b1']
+    pp.pprint(values)
+
+
+
+    guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
+    # misc.toimage(guess).show()
+
+    if values[1] == 'a1b0':
+        _X = img_complement(images['b'][:], images['a'])
+    elif values[1] == 'a0b1':
+        _X = img_complement(images['a'][:], images['b'])
+    else:
+        _X = None
+
+    # misc.toimage(_X).show()
+
+    misc.toimage(img_union(guess, _X)).show()
+
+    guess = img_union(guess, _X)
+
+    answer_sim = []
+
+    for i, answer in enumerate(answer_images):
+        sim = similarity2(guess, answer)
+        answer_sim.append([i+1, sim])
+    pp.pprint(answer_sim)
+    # max_sim = max(answer_sim, key=lambda item: answer_sim[1])
+    max_sim_val = 0
+    max_sim_nr = None
+    for sim in answer_sim:
+        if sim[1] > max_sim_val:
+            max_sim_val = sim[1]
+            max_sim_nr = sim[0]
+    print('max_sim={}'.format(max_sim_nr))
+    misc.toimage(answer_images[max_sim_nr-1]).show()
+
+    # pp.pprint(data)
+
+
 
