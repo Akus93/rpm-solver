@@ -1,5 +1,5 @@
 import json
-from .image import Image
+# from .image import Image
 
 problems_config = {
     '2x1': {

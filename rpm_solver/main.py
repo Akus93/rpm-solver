@@ -1,11 +1,7 @@
 import numpy
 import pprint
 from scipy import misc
-import pyprind
-from multiprocessing.pool import ThreadPool as Pool
 from multiprocessing import Process, Manager
-import _thread
-import threading
 
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -146,11 +142,12 @@ def similarity2(a, b):
 def make_black_or_white(img):
     for i, row in enumerate(img):
         for j, value in enumerate(img):
-            if img[i][j][0] < 128 and img[i][j][1] < 128 and img[i][j][2] < 128:
+            if img[i][j][0] < 230 and img[i][j][1] < 230 and img[i][j][2] < 230:
                 img[i][j][0] = img[i][j][1] = img[i][j][2] = 0
             else:
                 img[i][j][0] = img[i][j][1] = img[i][j][2] = 255
     return img
+
 
 test_nr = 7
 for x in range(1, 7):
@@ -173,7 +170,8 @@ values = ['', '', 0]
 leng = len(images['a'])
 
 
-def x(image, transforms, name):
+def transformation(image, transforms, name):
+    step = 20
     transform = {
         'image': image,
         'i': None,
@@ -185,10 +183,9 @@ def x(image, transforms, name):
             'a0b1': None,
         }
     }
-
-    bar = pyprind.ProgBar(leng//1)
-    for i in range(0, leng, 8):
-        for j in range(0, leng, 8):
+    print('Rozpoczecie transformacji {}'.format(name))
+    for i in range(0, leng, step):
+        for j in range(0, leng, step):
             rolled = numpy.roll(transform['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim = similarity2(rolled, images['b'])
@@ -197,49 +194,47 @@ def x(image, transforms, name):
                 transform['best_similarity'] = sim
                 transform['i'] = i
                 transform['j'] = j
-        bar.update()
     image = numpy.roll(numpy.roll(transform['image'], transform['i'], axis=0), transform['j'], axis=1)
     # misc.toimage(image).show()
     transform['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
     transform['similarity']['a1b0'] = similarity(image, images['b'], 1, 0)
     transform['similarity']['a0b1'] = similarity(image, images['b'], 0, 1)
     transforms[name] = transform
+    print('Zakończono transformacje {}'.format(name))
 
 
 if __name__ == '__main__':
     manager = Manager()
-    datapro = manager.dict()
-    datas = []
-    jobs = []
+    process_data = manager.dict()
 
     identity = images['a']
-    mirror = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
-    flip = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
-    rot90 = transformations['rot90'](images['a'])  # numpy.rot90(images['a'], 1)
+    mirror = transformations['mirror'](images['a'])
+    flip = transformations['flip'](images['a'])
+    rot90 = transformations['rot90'](images['a'])
     rot180 = transformations['rot180'](images['a'])
     rot270 = transformations['rot270'](images['a'])
 
-    p = Process(target=x, args=(identity, datapro, 'identity', ))
+    p = Process(target=transformation, args=(identity, process_data, 'identity',))
     p.daemon = True
     p.start()
 
-    p1 = Process(target=x, args=(mirror, datapro, 'mirror', ))
+    p1 = Process(target=transformation, args=(mirror, process_data, 'mirror',))
     p1.daemon = False
     p1.start()
 
-    p2 = Process(target=x, args=(rot90, datapro, 'rot90', ))
+    p2 = Process(target=transformation, args=(rot90, process_data, 'rot90',))
     p2.daemon = False
     p2.start()
 
-    p3 = Process(target=x, args=(rot180, datapro, 'rot180', ))
+    p3 = Process(target=transformation, args=(rot180, process_data, 'rot180',))
     p3.daemon = False
     p3.start()
 
-    p4 = Process(target=x, args=(rot270, datapro, 'rot270', ))
+    p4 = Process(target=transformation, args=(rot270, process_data, 'rot270',))
     p4.daemon = False
     p4.start()
 
-    p5 = Process(target=x, args=(flip, datapro, 'flip', ))
+    p5 = Process(target=transformation, args=(flip, process_data, 'flip',))
     p5.daemon = False
     p5.start()
 
@@ -251,7 +246,7 @@ if __name__ == '__main__':
     p5.join()
 
     for key in data.keys():
-        data[key] = datapro[key]
+        data[key] = process_data[key]
         if data[key]['similarity']['a1b1'] > values[2]:
             values[0] = key
             values[1] = 'a1b1'
@@ -276,7 +271,7 @@ if __name__ == '__main__':
     else:
         _X = None
 
-    # misc.toimage(_X).show()
+    misc.toimage(_X).show()
 
     misc.toimage(img_union(guess, _X)).show()
 

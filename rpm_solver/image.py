@@ -1,27 +1,13 @@
-import cv2
 import operator
-
-
-class Object:
-    area = None
-    aspect_ratio = None
-    filled = None
-    height = None
-    width = None
-    shape = None
-    center = None
+from scipy import misc
 
 
 class Image:
 
     def __init__(self, path):
         self.path = path
-        self.image = cv2.imread(path)
-        self.gray = cv2.imread(path, 0)
-        self.objects = []
-        self.conturs = self._get_conturs()
-        self._find_objects()
-        self._remove_duplicates()
+        self.image = misc.imread(path)
+
 
     def _get_conturs(self):
         thresh = self._get_thresh()
