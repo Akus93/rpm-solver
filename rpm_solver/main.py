@@ -1,6 +1,8 @@
 import numpy
 import pprint
 from scipy import misc
+import pyprind
+from multiprocessing.pool import ThreadPool as Pool
 from multiprocessing import Process, Manager
 
 
@@ -110,11 +112,20 @@ def img_complement(a, b):
 
 def img_union(a, b):
     if b.any():
+        b = list(numpy.array(b).tolist())
+        b = img_grey(b)
         for i, row in enumerate(a):
             for j, value in enumerate(row):
-                if ((value[0] > 128 and value[1] > 128 and value[2] > 128) and (
-                            b[i][j][0] < 128 and b[i][j][1] < 128 and b[i][j][2] < 128)):
+                if b[i][j][0] < 128 and b[i][j][1] < 128 and b[i][j][2] < 128:
                     value[0] = value[1] = value[2] = 0
+    return a
+
+
+def img_grey(a):
+    for i, row in enumerate(a):
+        for j, value in enumerate(row):
+            if j % 2 and i % 2:
+                value[0] = value[1] = value[2] = 255
     return a
 
 
@@ -149,57 +160,73 @@ def make_black_or_white(img):
     return img
 
 
-test_nr = 7
+test_nr = 1
 for x in range(1, 7):
     image_name = '{}.png'.format(x)
-    path = '../res/2x1/{}/{}'.format(test_nr, image_name)
+    path = 'res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
     img = make_black_or_white(img)
     answer_images.append(img)
 
 for x in ['a', 'b', 'c']:
     image_name = '{}.png'.format(x)
-    path = '../res/2x1/{}/{}'.format(test_nr, image_name)
+    path = 'res/2x1/{}/{}'.format(test_nr, image_name)
     img = misc.imread(path)
     img = make_black_or_white(img)
     images[x] = img
 
 
-values = ['', '', 0]
+values = ['', '', 0, '']
 
 leng = len(images['a'])
 
 
 def transformation(image, transforms, name):
-    step = 20
+    step = 25
     transform = {
         'image': image,
         'i': None,
         'j': None,
         'best_similarity': 0,
-        'similarity': {
+        'similarity_b': {
+            'a1b1': None,
+            'a1b0': None,
+            'a0b1': None,
+        },
+        'similarity_c': {
             'a1b1': None,
             'a1b0': None,
             'a0b1': None,
         }
     }
-    print('Rozpoczecie transformacji {}'.format(name))
+
     for i in range(0, leng, step):
         for j in range(0, leng, step):
             rolled = numpy.roll(transform['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
-            sim = similarity2(rolled, images['b'])
-            # print('transform={}, i={}, j={}, sim={}'.format(transform, i, j, sim))
-            if transform['best_similarity'] < sim:
-                transform['best_similarity'] = sim
+            sim_b = similarity2(rolled, images['b'])
+            sim_c = similarity2(rolled, images['c'])
+            # print('transform={}, i={}, j={}, sim_b={}'.format(transform, i, j, sim_b))
+            if transform['best_similarity'] < sim_b:
+                transform['best_similarity'] = sim_b
+                transform['i'] = i
+                transform['j'] = j
+            if transform['best_similarity'] < sim_c:
+                transform['best_similarity'] = sim_c
                 transform['i'] = i
                 transform['j'] = j
     image = numpy.roll(numpy.roll(transform['image'], transform['i'], axis=0), transform['j'], axis=1)
     # misc.toimage(image).show()
-    transform['similarity']['a1b1'] = similarity(image, images['b'], 1, 1)
-    transform['similarity']['a1b0'] = similarity(image, images['b'], 1, 0)
-    transform['similarity']['a0b1'] = similarity(image, images['b'], 0, 1)
+    transform['similarity_b']['a1b1'] = similarity(image, images['b'], 1, 1)
+    transform['similarity_b']['a1b0'] = similarity(image, images['b'], 1, 0)
+    transform['similarity_b']['a0b1'] = similarity(image, images['b'], 0, 1)
+
+    transform['similarity_c']['a1b1'] = similarity(image, images['c'], 1, 1)
+    transform['similarity_c']['a1b0'] = similarity(image, images['c'], 1, 0)
+    transform['similarity_c']['a0b1'] = similarity(image, images['c'], 0, 1)
+
     transforms[name] = transform
+
     print('Zakończono transformacje {}'.format(name))
 
 
@@ -208,9 +235,9 @@ if __name__ == '__main__':
     process_data = manager.dict()
 
     identity = images['a']
-    mirror = transformations['mirror'](images['a'])
-    flip = transformations['flip'](images['a'])
-    rot90 = transformations['rot90'](images['a'])
+    mirror = transformations['mirror'](images['a'])  # numpy.fliplr(images['a'])
+    flip = transformations['flip'](images['a'])  # numpy.flipud(images['a'])
+    rot90 = transformations['rot90'](images['a'])  # numpy.rot90(images['a'], 1)
     rot180 = transformations['rot180'](images['a'])
     rot270 = transformations['rot270'](images['a'])
 
@@ -247,35 +274,58 @@ if __name__ == '__main__':
 
     for key in data.keys():
         data[key] = process_data[key]
-        if data[key]['similarity']['a1b1'] > values[2]:
+        if data[key]['similarity_b']['a1b1'] > values[2]:
             values[0] = key
             values[1] = 'a1b1'
-            values[2] = data[key]['similarity']['a1b1']
-        if data[key]['similarity']['a1b0'] > values[2]:
+            values[2] = data[key]['similarity_b']['a1b1']
+            values[3] = 'b'
+        if data[key]['similarity_b']['a1b0'] > values[2]:
             values[0] = key
             values[1] = 'a1b0'
-            values[2] = data[key]['similarity']['a1b0']
-        if data[key]['similarity']['a0b1'] > values[2]:
+            values[2] = data[key]['similarity_b']['a1b0']
+            values[3] = 'b'
+        if data[key]['similarity_b']['a0b1'] > values[2]:
             values[0] = key
             values[1] = 'a0b1'
-            values[2] = data[key]['similarity']['a0b1']
+            values[2] = data[key]['similarity_b']['a0b1']
+            values[3] = 'b'
+        if data[key]['similarity_c']['a1b1'] > values[2]:
+            values[0] = key
+            values[1] = 'a1b1'
+            values[2] = data[key]['similarity_c']['a1b1']
+            values[3] = 'c'
+        if data[key]['similarity_c']['a1b0'] > values[2]:
+            values[0] = key
+            values[1] = 'a1b0'
+            values[2] = data[key]['similarity_c']['a1b0']
+            values[3] = 'c'
+        if data[key]['similarity_c']['a0b1'] > values[2]:
+            values[0] = key
+            values[1] = 'a0b1'
+            values[2] = data[key]['similarity_c']['a0b1']
+            values[3] = 'c'
     pp.pprint(values)
 
-    guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
-    # misc.toimage(guess).show()
-
-    if values[1] == 'a1b0':
-        _X = img_complement(images['b'], images['a'])
-    elif values[1] == 'a0b1':
-        _X = img_complement(images['a'], images['b'])
+    if values[3] == 'b':
+        guess = numpy.roll(numpy.roll(transformations[values[0]](images['c']), data[values[0]]['i'], axis=0), data[values[0]]['j'], axis=1)
+        if values[1] == 'a1b0':
+            _X = img_complement(images['b'], images['a'])
+        elif values[1] == 'a0b1':
+            _X = img_complement(images['a'], images['b'])
+        else:
+            _X = None
     else:
-        _X = None
-
-    misc.toimage(_X).show()
-
-    misc.toimage(img_union(guess, _X)).show()
+        guess = numpy.roll(numpy.roll(transformations[values[0]](images['b']), data[values[0]]['i'], axis=0),data[values[0]]['j'], axis=1)
+        if values[1] == 'a1b0':
+            _X = img_complement(images['c'], images['a'])
+        elif values[1] == 'a0b1':
+            _X = img_complement(images['a'], images['c'])
+        else:
+            _X = None
 
     guess = img_union(guess, _X)
+
+    misc.toimage(guess).show()
 
     answer_sim = []
 
