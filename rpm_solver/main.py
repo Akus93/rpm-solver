@@ -1,8 +1,6 @@
 import numpy
 import pprint
 from scipy import misc
-import pyprind
-from multiprocessing.pool import ThreadPool as Pool
 from multiprocessing import Process, Manager
 
 
@@ -159,6 +157,21 @@ def make_black_or_white(img):
                 img[i][j][0] = img[i][j][1] = img[i][j][2] = 255
     return img
 
+# from rpm_solver.problem import Problem
+# test_nr = '3'
+# problem = Problem('2x1', test_nr)
+# print('Oczekiwana odpowiedz to {}'.format(problem.get_correct_answer()))
+# for answer in problem.answers:
+#     answer_images.append(answer.data)
+#
+# for question in problem.questions:
+#     images[question.get_name()] = question.data
+# for x in range(1, 7):
+#     image_name = '{}.png'.format(x)
+#     path = '../res/2x1/{}/{}'.format(test_nr, image_name)
+#     img = misc.imread(path)
+#     img = make_black_or_white(img)
+#     answer_images.append(img)
 
 test_nr = 1
 for x in range(1, 7):
@@ -182,7 +195,7 @@ leng = len(images['a'])
 
 
 def transformation(image, transforms, name):
-    step = 25
+    step = 20
     transform = {
         'image': image,
         'i': None,
@@ -199,7 +212,7 @@ def transformation(image, transforms, name):
             'a0b1': None,
         }
     }
-
+    print('Rozpoczecie transformacji {}'.format(name))
     for i in range(0, leng, step):
         for j in range(0, leng, step):
             rolled = numpy.roll(transform['image'], i, axis=0)
@@ -332,7 +345,7 @@ if __name__ == '__main__':
     for i, answer in enumerate(answer_images):
         sim = similarity2(guess, answer)
         answer_sim.append([i+1, sim])
-    pp.pprint(answer_sim)
+    pp.pprint(sorted(answer_sim, key=lambda x: x[1])[::-1])
     # max_sim = max(answer_sim, key=lambda item: answer_sim[1])
     max_sim_val = 0
     max_sim_nr = None
@@ -340,7 +353,7 @@ if __name__ == '__main__':
         if sim[1] > max_sim_val:
             max_sim_val = sim[1]
             max_sim_nr = sim[0]
-    print('max_sim={}'.format(max_sim_nr))
+    # print('max_sim={}'.format(max_sim_nr))
     misc.toimage(answer_images[max_sim_nr-1]).show()
 
     # pp.pprint(data)
