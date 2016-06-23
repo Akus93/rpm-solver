@@ -1,5 +1,5 @@
 import json
-from rpm_solver.image import Image
+from image import Image
 
 problems_config = {
     '2x1': {
@@ -24,7 +24,6 @@ class Problem:
         self.number = number
         self.path = 'res/{}/{}/'.format(self.type, self.number)
         self.config = problems_config[self.type]
-        self.correct_answer = self.get_correct_answer()
         self.answers = []
         self.questions = []
 
