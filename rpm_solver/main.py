@@ -137,14 +137,6 @@ def img_grey(a):
                 value[0] = value[1] = value[2] = 255
     return a
 
-# from random import randint
-# def add_noise(img):
-#     for i, row in enumerate(img):
-#         for j, value in enumerate(row):
-#             if not randint(0, 7):
-#                 value[0] = value[1] = value[2] = 255
-#     return img
-
 
 def intersection(a, b):
     counter = 0
@@ -167,33 +159,7 @@ def similarity2(a, b):
     return _intersection / _union
 
 
-# def make_black_or_white(img):
-#     for i, row in enumerate(img):
-#         for j, value in enumerate(img):
-#             if img[i][j][0] < 230 and img[i][j][1] < 230 and img[i][j][2] < 230:
-#                 img[i][j][0] = img[i][j][1] = img[i][j][2] = 0
-#             else:
-#                 img[i][j][0] = img[i][j][1] = img[i][j][2] = 255
-#     return img
-
-
-# test_nr = 1
-# for x in range(1, 7):
-#     image_name = '{}.png'.format(x)
-#     path = 'res/2x1/{}/{}'.format(test_nr, image_name)
-#     img = misc.imread(path)
-#     img = make_black_or_white(img)
-#     answer_images.append(img)
-#
-# for x in ['a', 'b', 'c']:
-#     image_name = '{}.png'.format(x)
-#     path = 'res/2x1/{}/{}'.format(test_nr, image_name)
-#     img = misc.imread(path)
-#     img = make_black_or_white(img)
-#     images[x] = img
-
-
-def transformation(image, transforms, name, step):
+def transformation(image, transforms, name, step, test_type):
     length = len(images['a'])
     transform = {
         'image': image,
@@ -217,25 +183,28 @@ def transformation(image, transforms, name, step):
             rolled = numpy.roll(transform['image'], i, axis=0)
             rolled = numpy.roll(rolled, j, axis=1)
             sim_b = similarity2(rolled, images['b'])
-            sim_c = similarity2(rolled, images['c'])
+            if test_type == '2x2':
+                sim_c = similarity2(rolled, images['c'])
             # print('transform={}, i={}, j={}, sim_b={}'.format(transform, i, j, sim_b))
             if transform['best_similarity'] < sim_b:
                 transform['best_similarity'] = sim_b
                 transform['i'] = i
                 transform['j'] = j
-            if transform['best_similarity'] < sim_c:
-                transform['best_similarity'] = sim_c
-                transform['i'] = i
-                transform['j'] = j
+            if test_type == '2x2':
+                if transform['best_similarity'] < sim_c:
+                    transform['best_similarity'] = sim_c
+                    transform['i'] = i
+                    transform['j'] = j
     image = numpy.roll(numpy.roll(transform['image'], transform['i'], axis=0), transform['j'], axis=1)
     # misc.toimage(image).show()
     transform['similarity_b']['a1b1'] = similarity(image, images['b'], 1, 1)
     transform['similarity_b']['a1b0'] = similarity(image, images['b'], 1, 0)
     transform['similarity_b']['a0b1'] = similarity(image, images['b'], 0, 1)
 
-    transform['similarity_c']['a1b1'] = similarity(image, images['c'], 1, 1)
-    transform['similarity_c']['a1b0'] = similarity(image, images['c'], 1, 0)
-    transform['similarity_c']['a0b1'] = similarity(image, images['c'], 0, 1)
+    if test_type == '2x2':
+        transform['similarity_c']['a1b1'] = similarity(image, images['c'], 1, 1)
+        transform['similarity_c']['a1b0'] = similarity(image, images['c'], 1, 0)
+        transform['similarity_c']['a0b1'] = similarity(image, images['c'], 0, 1)
 
     transforms[name] = transform
 
@@ -247,6 +216,7 @@ if __name__ == '__main__':
                                      epilog="Autorzy: Dawid Rdzanek i Anna Kuszyńska")
     parser.add_argument("--step", "-s", type=int, default=1,
                         help="liczba przeskoku przy obliczaniu transformacji (domyślnie 1).")
+    parser.add_argument("--type", "-x", type=str, default='2x1', help="typ testu (domyślnie 2x1).")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-t", "--test", type=str, help="numer testu do wykonania")
     group.add_argument("-a", "--all", action='store_true', help="wykonaj wszystkie testy")
@@ -256,16 +226,17 @@ if __name__ == '__main__':
     process_data = manager.dict()
 
     step = args.step
-
+    test_type = args.type
+    print('Typ: {}'.format(test_type))
     tests = []
     if args.all:
-        tests.extend(sorted([name for name in listdir('./res/2x1')], key=natural_key))
+        tests.extend(sorted([name for name in listdir('./res/{}'.format(test_type))], key=natural_key))
         print('Znaleziono {} testów.\n'.format(len(tests)))
     else:
         tests.append(args.test)
 
     for test_nr in tests:
-        problem = Problem('2x1', test_nr)
+        problem = Problem(test_type, test_nr)
         print('Rozpoczęcie testu nr.{}'.format(test_nr))
         start_time = time()
         # print('Oczekiwana odpowiedz to {}'.format(problem.get_correct_answer()))
@@ -282,27 +253,27 @@ if __name__ == '__main__':
         rot180 = transformations['rot180'](images['a'])
         rot270 = transformations['rot270'](images['a'])
 
-        p = Process(target=transformation, args=(identity, process_data, 'identity', step))
+        p = Process(target=transformation, args=(identity, process_data, 'identity', step, test_type))
         p.daemon = True
         p.start()
 
-        p1 = Process(target=transformation, args=(mirror, process_data, 'mirror', step))
+        p1 = Process(target=transformation, args=(mirror, process_data, 'mirror', step, test_type))
         p1.daemon = False
         p1.start()
 
-        p2 = Process(target=transformation, args=(rot90, process_data, 'rot90', step))
+        p2 = Process(target=transformation, args=(rot90, process_data, 'rot90', step, test_type))
         p2.daemon = False
         p2.start()
 
-        p3 = Process(target=transformation, args=(rot180, process_data, 'rot180', step))
+        p3 = Process(target=transformation, args=(rot180, process_data, 'rot180', step, test_type))
         p3.daemon = False
         p3.start()
 
-        p4 = Process(target=transformation, args=(rot270, process_data, 'rot270', step))
+        p4 = Process(target=transformation, args=(rot270, process_data, 'rot270', step, test_type))
         p4.daemon = False
         p4.start()
 
-        p5 = Process(target=transformation, args=(flip, process_data, 'flip', step))
+        p5 = Process(target=transformation, args=(flip, process_data, 'flip', step, test_type))
         p5.daemon = False
         p5.start()
 
@@ -332,22 +303,23 @@ if __name__ == '__main__':
                 best_similarity[1] = 'a0b1'
                 best_similarity[2] = data[key]['similarity_b']['a0b1']
                 best_similarity[3] = 'b'
-            if data[key]['similarity_c']['a1b1'] > best_similarity[2]:
-                best_similarity[0] = key
-                best_similarity[1] = 'a1b1'
-                best_similarity[2] = data[key]['similarity_c']['a1b1']
-                best_similarity[3] = 'c'
-            if data[key]['similarity_c']['a1b0'] > best_similarity[2]:
-                best_similarity[0] = key
-                best_similarity[1] = 'a1b0'
-                best_similarity[2] = data[key]['similarity_c']['a1b0']
-                best_similarity[3] = 'c'
-            if data[key]['similarity_c']['a0b1'] > best_similarity[2]:
-                best_similarity[0] = key
-                best_similarity[1] = 'a0b1'
-                best_similarity[2] = data[key]['similarity_c']['a0b1']
-                best_similarity[3] = 'c'
-        pp.pprint(best_similarity)
+            if test_type == '2x2':
+                if data[key]['similarity_c']['a1b1'] > best_similarity[2]:
+                    best_similarity[0] = key
+                    best_similarity[1] = 'a1b1'
+                    best_similarity[2] = data[key]['similarity_c']['a1b1']
+                    best_similarity[3] = 'c'
+                if data[key]['similarity_c']['a1b0'] > best_similarity[2]:
+                    best_similarity[0] = key
+                    best_similarity[1] = 'a1b0'
+                    best_similarity[2] = data[key]['similarity_c']['a1b0']
+                    best_similarity[3] = 'c'
+                if data[key]['similarity_c']['a0b1'] > best_similarity[2]:
+                    best_similarity[0] = key
+                    best_similarity[1] = 'a0b1'
+                    best_similarity[2] = data[key]['similarity_c']['a0b1']
+                    best_similarity[3] = 'c'
+        # pp.pprint(best_similarity)
 
         if best_similarity[3] == 'b':
             guess = numpy.roll(numpy.roll(transformations[best_similarity[0]](images['c']), data[best_similarity[0]]['i'], axis=0), data[best_similarity[0]]['j'], axis=1)

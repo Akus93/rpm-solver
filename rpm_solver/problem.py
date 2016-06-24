@@ -9,7 +9,10 @@ problems_config = {
         'info': 'info.json',
     },
     '2x2': {
-
+        'answers': [str(x) + '.png' for x in range(1, 7)],
+        'data': ['a.png', 'b.png', 'c.png'],
+        'full': 'full.png',
+        'info': 'info.json',
     },
     '3x3': {
 
